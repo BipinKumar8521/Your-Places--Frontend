@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import "./PlaceForm.css";
 import { useParams } from "react-router-dom";
 import Input from "../../Shared/components/FormElements/Input";
@@ -8,6 +8,7 @@ import {
 } from "../../Shared/util/validators";
 import Button from "../../Shared/components/FormElements/Button";
 import { useForm } from "../../Shared/hooks/form-hook";
+import Card from "../../Shared/components/UIElements/Card";
 
 const DUMMY_PLACES = [
   {
@@ -39,28 +40,51 @@ const DUMMY_PLACES = [
 ];
 
 export default function UpdatePlace() {
+  const [isLoading, setIsLoading] = useState(true);
+
   const placeId = useParams().placeId;
+
+  const [formState, inputHandler, setFormData] = useForm(
+    {
+      title: {
+        value: "",
+        isValid: false,
+      },
+      description: {
+        value: "",
+        isValid: false,
+      },
+    },
+    false
+  );
 
   const identifiedPlace = DUMMY_PLACES.find((p) => p.id === placeId);
 
-  const [formState, inputHandler] = useForm(
-    {
-      title: {
-        value: identifiedPlace.title,
-        isValid: true,
-      },
-      description: {
-        value: identifiedPlace.description,
-        isValid: true,
-      },
-    },
-    true
-  );
+  useEffect(() => {
+    if (identifiedPlace) {
+      setFormData(
+        {
+          title: {
+            value: identifiedPlace.title,
+            isValid: true,
+          },
+          description: {
+            value: identifiedPlace.description,
+            isValid: true,
+          },
+        },
+        true
+      );
+    }
+    setIsLoading(false);
+  }, [setFormData, identifiedPlace]);
 
   if (!identifiedPlace) {
     return (
       <div className="center">
-        <h2>Could not find place!</h2>
+        <Card>
+          <h2>Could not find place!</h2>
+        </Card>
       </div>
     );
   }
@@ -69,6 +93,10 @@ export default function UpdatePlace() {
     e.preventDefault();
     console.log(formState.inputs);
   };
+
+  if (isLoading) {
+    return <div className="center">Loading......</div>;
+  }
 
   return (
     <form className="place-form" onSubmit={placeUpdateHandler}>

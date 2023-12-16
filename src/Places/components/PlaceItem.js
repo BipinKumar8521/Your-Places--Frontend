@@ -1,15 +1,28 @@
-import React from "react";
+import React, { useContext } from "react";
 import { useState } from "react";
 import "./PlaceItem.css";
 import Card from "../../Shared/components/UIElements/Card";
 import Button from "../../Shared/components/FormElements/Button";
 import Map from "../../Shared/components/UIElements/Map";
 import Modal from "../../Shared/components/UIElements/Modal";
+import { AuthContext } from "../../Shared/context/auth-context";
 
 export default function PlaceItem(props) {
   const [showMap, setShowMap] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const auth = useContext(AuthContext);
+
   const openMapHandler = () => setShowMap(true);
   const closeMapHandler = () => setShowMap(false);
+
+  const openDeleteModal = () => setShowDeleteModal(true);
+  const closeDeleteModal = () => setShowDeleteModal(false);
+
+  const deletePlaceHandler = () => {
+    setShowDeleteModal(false);
+    console.log("deleting.....");
+  };
+
   return (
     <React.Fragment>
       <Modal
@@ -24,6 +37,25 @@ export default function PlaceItem(props) {
           <Map center={props.coordinates} zoom={16} />
         </div>
       </Modal>
+      <Modal
+        show={showDeleteModal}
+        onCancel={closeDeleteModal}
+        header="Are you sure?"
+        footerClass="place-item__modal-actions"
+        footer={
+          <React.Fragment>
+            <Button inverse onClick={closeDeleteModal}>
+              Cancel
+            </Button>
+            <Button danger onClick={deletePlaceHandler}>
+              Delete
+            </Button>
+          </React.Fragment>
+        }
+      >
+        <p>Do you want to delete this place? This can't be undone later.</p>
+      </Modal>
+
       <li className="place-item">
         <Card className="place-item__content">
           <div className="place-item__image">
@@ -38,8 +70,14 @@ export default function PlaceItem(props) {
             <Button inverse onClick={openMapHandler}>
               VIEW ON MAP
             </Button>
-            <Button to={`/places/${props.id}`}>EDIT</Button>
-            <Button danger>DELETE</Button>
+            {auth.isLoggedIn && (
+              <>
+                <Button to={`/places/${props.id}`}>EDIT</Button>{" "}
+                <Button danger onClick={openDeleteModal}>
+                  DELETE
+                </Button>
+              </>
+            )}
           </div>
         </Card>
       </li>
