@@ -76,7 +76,7 @@ export default function Auth() {
           {},
           formData
         );
-        auth.login(responseData.useId, responseData.token);
+        auth.login(responseData.userId, responseData.token);
       } catch (err) {}
     }
   };
