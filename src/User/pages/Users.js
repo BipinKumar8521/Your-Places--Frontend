@@ -1,15 +1,34 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import UsersList from "../components/UsersList";
+import { useHttpClient } from "../../Shared/hooks/http-hook";
+import LoadingSpinner from "../../Shared/components/UIElements/LoadingSpinner";
+import ErrorModal from "../../Shared/components/UIElements/ErrorModal";
 
 export default function Users() {
-  const USERS = [
-    {
-      id: "u1",
-      name: "Max Schwarz",
-      image:
-        "https://cdn.pixabay.com/photo/2020/07/01/12/58/icon-5359553_1280.png",
-      places: 3,
-    },
-  ];
-  return <UsersList items={USERS} />;
+  const { isLoading, sendRequest, error, clearError } = useHttpClient();
+  const [fetchedUsers, setFetchedUsers] = useState();
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const responseData = await sendRequest(
+          "http://localhost:5000/api/users"
+        );
+        setFetchedUsers(responseData.users);
+      } catch (err) {}
+    };
+
+    fetchUser();
+  }, [sendRequest]);
+  return (
+    <React.Fragment>
+      <ErrorModal error={error} onClear={clearError} />
+      {isLoading && (
+        <div className="center">
+          <LoadingSpinner asOverlay />
+        </div>
+      )}
+      {!isLoading && fetchedUsers && <UsersList items={fetchedUsers} />}
+    </React.Fragment>
+  );
 }

@@ -12,9 +12,14 @@ import {
 import Card from "../../Shared/components/UIElements/Card";
 
 import { AuthContext } from "../../Shared/context/auth-context";
+import LoadingSpinner from "../../Shared/components/UIElements/LoadingSpinner";
+import ErrorModal from "../../Shared/components/UIElements/ErrorModal";
+import { useHttpClient } from "../../Shared/hooks/http-hook";
+import ImageUpload from "../../Shared/components/FormElements/ImageUpload";
 
 export default function Auth() {
   const [isLoginMode, setIsLoginMode] = useState(true);
+  const { isLoading, error, sendRequest, clearError } = useHttpClient();
 
   const auth = useContext(AuthContext);
 
@@ -32,8 +37,9 @@ export default function Auth() {
     false
   );
 
-  const authSubmitHandler = (e) => {
+  const authSubmitHandler = async (e) => {
     e.preventDefault();
+
     if (
       !isLoginMode &&
       formState.inputs.password.value !== formState.inputs.confirmPassword.value
@@ -41,9 +47,38 @@ export default function Auth() {
       alert("Password does not match.");
       return;
     }
-    auth.login();
+    if (isLoginMode) {
+      try {
+        const responseData = await sendRequest(
+          "http://localhost:5000/api/users/login",
+          "POST",
+          {
+            "Content-Type": "application/json",
+          },
+          JSON.stringify({
+            email: formState.inputs.email.value,
+            password: formState.inputs.password.value,
+          })
+        );
+        auth.login(responseData.userId, responseData.token);
+      } catch (err) {}
+    } else {
+      try {
+        const formData = new FormData();
+        formData.append("email", formState.inputs.email.value);
+        formData.append("name", formState.inputs.name.value);
+        formData.append("password", formState.inputs.password.value);
+        formData.append("image", formState.inputs.image.value);
 
-    console.log(formState.inputs);
+        const responseData = await sendRequest(
+          "http://localhost:5000/api/users/signup",
+          "POST",
+          {},
+          formData
+        );
+        auth.login(responseData.useId, responseData.token);
+      } catch (err) {}
+    }
   };
 
   const switchModeHandler = () => {
@@ -52,6 +87,7 @@ export default function Auth() {
         {
           ...formState.inputs,
           name: undefined,
+          image: undefined,
           confirmPassword: undefined,
         },
         formState.inputs.email.isValid && formState.inputs.password.isValid
@@ -68,6 +104,10 @@ export default function Auth() {
             value: "",
             isValid: false,
           },
+          image: {
+            value: null,
+            isValid: false,
+          },
         },
         false
       );
@@ -76,56 +116,68 @@ export default function Auth() {
   };
 
   return (
-    <Card className="authentication">
-      <h2>{isLoginMode ? "Login Required" : "Sign Up"}</h2>
-      <form onSubmit={authSubmitHandler}>
-        {!isLoginMode && (
+    <React.Fragment>
+      <ErrorModal error={error} onClear={clearError} />
+      <Card className="authentication">
+        {isLoading && <LoadingSpinner asOverlay />}
+        <h2>{isLoginMode ? "Login Required" : "Sign Up"}</h2>
+        <form onSubmit={authSubmitHandler}>
+          {!isLoginMode && (
+            <Input
+              id="name"
+              element="input"
+              type="text"
+              validators={[VALIDATOR_REQUIRE()]}
+              errorText="Please enter a valid name."
+              label="Name:"
+              onInput={inputHandler}
+            />
+          )}
+          {!isLoginMode && (
+            <ImageUpload
+              id="image"
+              center
+              onInput={inputHandler}
+              errorText="Please provide an image."
+            />
+          )}
           <Input
-            id="name"
+            id="email"
             element="input"
-            type="text"
-            validators={[VALIDATOR_REQUIRE()]}
-            errorText="Please enter a valid name."
-            label="Name:"
+            type="email"
+            validators={[VALIDATOR_EMAIL()]}
+            errorText="Please enter a valid email."
+            label="Email:"
             onInput={inputHandler}
           />
-        )}
-        <Input
-          id="email"
-          element="input"
-          type="email"
-          validators={[VALIDATOR_EMAIL()]}
-          errorText="Please enter a valid email."
-          label="Email:"
-          onInput={inputHandler}
-        />
-        <Input
-          id="password"
-          element="input"
-          type="password"
-          validators={[VALIDATOR_MINLENGTH(5)]}
-          errorText="Please enter a valid password, at least 5 character"
-          label="Password:"
-          onInput={inputHandler}
-        />
-        {!isLoginMode && (
           <Input
-            id="confirmPassword"
+            id="password"
             element="input"
             type="password"
-            validators={[VALIDATOR_SAME(formState.inputs.password.value)]}
-            errorText="Password does not match."
-            label="Confirm Password:"
+            validators={[VALIDATOR_MINLENGTH(6)]}
+            errorText="Please enter a valid password, at least 6 character"
+            label="Password:"
             onInput={inputHandler}
           />
-        )}
-        <Button type="submit" disabled={!formState.isValid}>
-          {isLoginMode ? "LOGIN" : "SIGNUP"}
+          {!isLoginMode && (
+            <Input
+              id="confirmPassword"
+              element="input"
+              type="password"
+              validators={[VALIDATOR_SAME(formState.inputs.password.value)]}
+              errorText="Password does not match."
+              label="Confirm Password:"
+              onInput={inputHandler}
+            />
+          )}
+          <Button type="submit" disabled={!formState.isValid}>
+            {isLoginMode ? "LOGIN" : "SIGNUP"}
+          </Button>
+        </form>
+        <Button inverse onClick={switchModeHandler}>
+          SWITCH TO {isLoginMode ? "SIGNUP" : "LOGIN"}
         </Button>
-      </form>
-      <Button inverse onClick={switchModeHandler}>
-        SWITCH TO {isLoginMode ? "SIGNUP" : "LOGIN"}
-      </Button>
-    </Card>
+      </Card>
+    </React.Fragment>
   );
 }

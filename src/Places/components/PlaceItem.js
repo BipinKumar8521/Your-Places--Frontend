@@ -6,11 +6,18 @@ import Button from "../../Shared/components/FormElements/Button";
 import Map from "../../Shared/components/UIElements/Map";
 import Modal from "../../Shared/components/UIElements/Modal";
 import { AuthContext } from "../../Shared/context/auth-context";
+import { useHttpClient } from "../../Shared/hooks/http-hook";
+import LoadingSpinner from "../../Shared/components/UIElements/LoadingSpinner";
+import ErrorModal from "../../Shared/components/UIElements/ErrorModal";
+
+
 
 export default function PlaceItem(props) {
   const [showMap, setShowMap] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const auth = useContext(AuthContext);
+
+  const { isLoading, error, sendRequest, clearError } = useHttpClient();
 
   const openMapHandler = () => setShowMap(true);
   const closeMapHandler = () => setShowMap(false);
@@ -18,13 +25,23 @@ export default function PlaceItem(props) {
   const openDeleteModal = () => setShowDeleteModal(true);
   const closeDeleteModal = () => setShowDeleteModal(false);
 
-  const deletePlaceHandler = () => {
+  const deletePlaceHandler = async () => {
     setShowDeleteModal(false);
-    console.log("deleting.....");
+    try {
+      await sendRequest(
+        `http://localhost:5000/api/places/${props.id}`,
+        "DELETE",
+        {
+          Authorization: "Bearer " + auth.token,
+        }
+      );
+      props.onDelete(props.id);
+    } catch (err) {}
   };
 
   return (
     <React.Fragment>
+      <ErrorModal error={error} onClear={clearError} />
       <Modal
         show={showMap}
         onCancel={closeMapHandler}
@@ -58,8 +75,12 @@ export default function PlaceItem(props) {
 
       <li className="place-item">
         <Card className="place-item__content">
+          {isLoading && <LoadingSpinner asOverlay />}
           <div className="place-item__image">
-            <img src={props.image} alt={props.title} />
+            <img
+              src={`http://localhost:5000/${props.image}`}
+              alt={props.title}
+            />
           </div>
           <div className="place-item__info">
             <h2>{props.title}</h2>
@@ -70,7 +91,7 @@ export default function PlaceItem(props) {
             <Button inverse onClick={openMapHandler}>
               VIEW ON MAP
             </Button>
-            {auth.isLoggedIn && (
+            {auth.loggedInUserId === props.creatorId && (
               <>
                 <Button to={`/places/${props.id}`}>EDIT</Button>{" "}
                 <Button danger onClick={openDeleteModal}>

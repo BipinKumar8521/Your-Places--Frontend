@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import "./PlaceForm.css";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Input from "../../Shared/components/FormElements/Input";
 import {
   VALIDATOR_MINLENGTH,
@@ -9,38 +9,19 @@ import {
 import Button from "../../Shared/components/FormElements/Button";
 import { useForm } from "../../Shared/hooks/form-hook";
 import Card from "../../Shared/components/UIElements/Card";
-
-const DUMMY_PLACES = [
-  {
-    id: "p1",
-    title: "Empire State Building",
-    description: "One of the most famous sky scrapers in the world!",
-    imageUrl:
-      "https://www.esbnyc.com/sites/default/files/2020-01/ESB%20Day.jpg",
-    address: "20 W 34th  St, New York, NY 10001",
-    location: {
-      lat: 40.7484405,
-      lng: -73.9878584,
-    },
-    creator: "u1",
-  },
-  {
-    id: "p2",
-    title: "Empire State Building",
-    description: "One of the most famous sky scrapers in the world!",
-    imageUrl:
-      "https://s-i.huffpost.com/gen/1359704/images/o-EMPIRE-STATE-BUILDING-facebook.jpg",
-    address: "20 W 34th  St, New York, NY 10001",
-    location: {
-      lat: 40.7484405,
-      lng: -73.9878584,
-    },
-    creator: "u2",
-  },
-];
+import { useHttpClient } from "../../Shared/hooks/http-hook";
+import LoadingSpinner from "../../Shared/components/UIElements/LoadingSpinner";
+import ErrorModal from "../../Shared/components/UIElements/ErrorModal";
+import { AuthContext } from "../../Shared/context/auth-context";
 
 export default function UpdatePlace() {
-  const [isLoading, setIsLoading] = useState(true);
+  const [loadedPlace, setLoadedPlace] = useState();
+
+  const { isLoading, error, sendRequest, clearError } = useHttpClient();
+
+  const navigate = useNavigate();
+
+  const auth = useContext(AuthContext);
 
   const placeId = useParams().placeId;
 
@@ -58,28 +39,43 @@ export default function UpdatePlace() {
     false
   );
 
-  const identifiedPlace = DUMMY_PLACES.find((p) => p.id === placeId);
-
   useEffect(() => {
-    if (identifiedPlace) {
-      setFormData(
-        {
-          title: {
-            value: identifiedPlace.title,
-            isValid: true,
-          },
-          description: {
-            value: identifiedPlace.description,
-            isValid: true,
-          },
-        },
-        true
-      );
-    }
-    setIsLoading(false);
-  }, [setFormData, identifiedPlace]);
+    const fetchPlaces = async () => {
+      try {
+        const responseData = await sendRequest(
+          `http://localhost:5000/api/places/${placeId}`
+        );
 
-  if (!identifiedPlace) {
+        setLoadedPlace(responseData.place);
+
+        setFormData(
+          {
+            title: {
+              value: responseData.place.title,
+              isValid: true,
+            },
+            description: {
+              value: responseData.place.description,
+              isValid: true,
+            },
+          },
+          true
+        );
+      } catch (err) {}
+    };
+
+    fetchPlaces();
+  }, [setFormData, placeId, sendRequest]);
+
+  if (isLoading) {
+    return (
+      <div className="center">
+        <LoadingSpinner asOverlay />
+      </div>
+    );
+  }
+
+  if (!loadedPlace) {
     return (
       <div className="center">
         <Card>
@@ -89,41 +85,56 @@ export default function UpdatePlace() {
     );
   }
 
-  const placeUpdateHandler = (e) => {
+  const placeUpdateHandler = async (e) => {
     e.preventDefault();
-    console.log(formState.inputs);
+    try {
+      await sendRequest(
+        `http://localhost:5000/api/places/${placeId}`,
+        "PATCH",
+        {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + auth.token,
+        },
+        JSON.stringify({
+          title: formState.inputs.title.value,
+          description: formState.inputs.description.value,
+        })
+      );
+
+      navigate(`/${auth.loggedInUserId}/places`);
+    } catch {}
   };
 
-  if (isLoading) {
-    return <div className="center">Loading......</div>;
-  }
-
   return (
-    <form className="place-form" onSubmit={placeUpdateHandler}>
-      <Input
-        id="title"
-        element="input"
-        type="text"
-        label="Title"
-        validators={[VALIDATOR_REQUIRE()]}
-        errorText="Please enter a valid title"
-        onInput={inputHandler}
-        initialValue={formState.inputs.title.value}
-        initialValid={formState.inputs.title.isValid}
-      />
-      <Input
-        id="description"
-        element="textarea"
-        label="Description"
-        validators={[VALIDATOR_MINLENGTH(10)]}
-        errorText="Please enter a valid description (at least 10 characters.)"
-        onInput={inputHandler}
-        initialValue={formState.inputs.description.value}
-        initialValid={formState.inputs.description.isValid}
-      />
-      <Button type="submit" disabled={!formState.isValid}>
-        UPDATE PLACE
-      </Button>
-    </form>
+    <>
+      <ErrorModal error={error} onClear={clearError} />
+
+      <form className="place-form" onSubmit={placeUpdateHandler}>
+        <Input
+          id="title"
+          element="input"
+          type="text"
+          label="Title"
+          validators={[VALIDATOR_REQUIRE()]}
+          errorText="Please enter a valid title"
+          onInput={inputHandler}
+          initialValue={formState.inputs.title.value}
+          initialValid={formState.inputs.title.isValid}
+        />
+        <Input
+          id="description"
+          element="textarea"
+          label="Description"
+          validators={[VALIDATOR_MINLENGTH(10)]}
+          errorText="Please enter a valid description (at least 10 characters.)"
+          onInput={inputHandler}
+          initialValue={formState.inputs.description.value}
+          initialValid={formState.inputs.description.isValid}
+        />
+        <Button type="submit" disabled={!formState.isValid}>
+          UPDATE PLACE
+        </Button>
+      </form>
+    </>
   );
 }
